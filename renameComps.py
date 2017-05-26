@@ -100,8 +100,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     errors = []
-    xmldir = os.path.abspath(args.xmldir)
-    logfile = os.path.abspath(args.out)
+    xmldir = os.path.abspath(args.xmldir).decode('utf-8').encode('gb2312')
+    logfile = args.out
+    if logfile is not None:
+        logfile = os.path.abspath(logfile).decode('utf-8').encode('gb2312')
     renameDir(xmldir, errors)
 
     if len(errors) > 0:
