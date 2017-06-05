@@ -18,6 +18,7 @@ AUTHOR = None
 REVISION = None
 PATH_FROM = None
 PATH_TO = None
+PATH_FROM_NAME = None
 
 # ------------------------------------------------------------------------
 # r32074 | myname | 2016-07-07 09:37:50 +0800 (周四, 07 七月 2016)
@@ -145,7 +146,7 @@ def openCampare(patchs):
 
 def commitPath(patchs):
     revisions = ','.join([str(p.revision) for p in patchs])
-    logmsg = "merge from dev %s" % revisions
+    logmsg = "merge from %s %s" % (PATH_FROM_NAME, revisions)
     output, isOk = call('"%s" /command:commit /closeonend:0 /path:"%s" /logmsg:"%s"' % (TortoiseSVN, PATH_TO, logmsg))
     print(output, isOk)
     return isOk
@@ -166,12 +167,13 @@ def writefile(filename, data):
         f.write(data)
         f.close()
 
-def readConfig(path):
+def readConfig(path, branch):
     global AUTHOR, PATH_FROM, PATH_TO, REVISION
     j = json.loads(readfile(path))
     AUTHOR = j['author']
-    PATH_FROM = j['from']
-    PATH_TO = j['to']
+    PATH_FROM_NAME = j['from']
+    PATH_FROM = branch[j['from']]
+    PATH_TO = branch[j['to']]
     REVISION = j['reversion']
     return j
 
@@ -185,20 +187,51 @@ if __name__ == '__main__':
         description='merge svn from $from to $to')
     parser.add_argument('config', 
         help='config file')
+    parser.add_argument('-b', '--branchs',
+        help='branchs config file')
+    parser.add_argument('-o', '--origin',
+        help='from branch')
+    parser.add_argument('-t', '--to',
+        help='to branch')
     parser.add_argument('-r', '--revs', nargs='*', type=int,
         help='reversion list')
 
     args = parser.parse_args()
     # print(args.config)
+    
+
+    branchs = dict();
+    branchPath = 'branchs.json'
+    if args.branchs is not None:
+        branchPath = args.branchs
+        if not branchPath.endswith('.json'):
+            branchPath = branchPath + '.json'
+    branchs = json.loads(readfile(branchPath))
+
     configPath = os.path.abspath(args.config)
     if not configPath.endswith('.json'):
         configPath = configPath + '.json'
-    config = readConfig(configPath)
+    config = readConfig(configPath, branchs)
+
+    dontSave = False
+    if args.origin is not None:
+        if args.origin not in branchs:
+            raise Exception('can not found origin branch' + origin)
+        PATH_FROM = branchs[args.origin]
+        dontSave = True
+
+    if args.to is not None:
+        if args.to not in branchs:
+            raise Exception('can not found to branch' + to)
+        PATH_TO = branchs[args.to]
+        dontSave = True
+
     updateRepository(config['to'])
 
     revs = args.revs[:]
     if len(revs) > 0:
         revs.sort()
+        dontSave = True
     else:
         revs = getRevisions()
 
@@ -213,7 +246,7 @@ if __name__ == '__main__':
             lastReversion = revs[-1]
             config['reversion'] = lastReversion + 1
             config['lastReversion'] = lastReversion
-            if len(args.revs) == 0:
+            if not dontSave:
                 writeConfig(configPath, config)
 
     # commitPath(None)
