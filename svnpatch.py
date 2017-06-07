@@ -168,7 +168,7 @@ def writefile(filename, data):
         f.close()
 
 def readConfig(path, branch):
-    global AUTHOR, PATH_FROM, PATH_TO, REVISION
+    global AUTHOR, PATH_FROM, PATH_TO, REVISION, PATH_FROM_NAME
     j = json.loads(readfile(path))
     AUTHOR = j['author']
     PATH_FROM_NAME = j['from']
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     
 
     branchs = dict();
-    branchPath = 'branchs.json'
+    branchPath = 'branch.json'
     if args.branchs is not None:
         branchPath = args.branchs
         if not branchPath.endswith('.json'):
@@ -226,9 +226,9 @@ if __name__ == '__main__':
         PATH_TO = branchs[args.to]
         dontSave = True
 
-    updateRepository(config['to'])
+    updateRepository(PATH_TO)
 
-    revs = args.revs[:]
+    revs = [] if args.revs is None else args.revs[:]
     if len(revs) > 0:
         revs.sort()
         dontSave = True
