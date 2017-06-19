@@ -187,8 +187,8 @@ if __name__ == '__main__':
         description='merge svn from $from to $to')
     parser.add_argument('config', 
         help='config file')
-    parser.add_argument('-b', '--branchs',
-        help='branchs config file')
+    parser.add_argument('-b', '--branchs', default = 'branch.json',
+        help='branchs config file(default: branch.json)')
     parser.add_argument('-o', '--origin',
         help='from branch')
     parser.add_argument('-t', '--to',
@@ -201,11 +201,9 @@ if __name__ == '__main__':
     
 
     branchs = dict();
-    branchPath = 'branch.json'
-    if args.branchs is not None:
-        branchPath = args.branchs
-        if not branchPath.endswith('.json'):
-            branchPath = branchPath + '.json'
+    branchPath = args.branchs
+    if not branchPath.endswith('.json'):
+        branchPath = branchPath + '.json'
     branchs = json.loads(readfile(branchPath))
 
     configPath = os.path.abspath(args.config)
