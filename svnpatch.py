@@ -216,6 +216,7 @@ if __name__ == '__main__':
         if args.origin not in branchs:
             raise Exception('can not found origin branch' + origin)
         PATH_FROM = branchs[args.origin]
+        PATH_FROM_NAME = args.origin
         dontSave = True
 
     if args.to is not None:
