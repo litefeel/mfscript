@@ -9,6 +9,7 @@ import re
 import tempfile
 import argparse
 import json
+import xml.etree.ElementTree as ET
 
 SVN = r"C:/Program Files/TortoiseSVN/bin/svn.exe"
 TortoiseSVN = r"C:/Program Files/TortoiseSVN/bin/TortoiseProc.exe"
@@ -20,27 +21,12 @@ PATH_FROM = None
 PATH_TO = None
 PATH_FROM_NAME = None
 
-# ------------------------------------------------------------------------
-# r32074 | myname | 2016-07-07 09:37:50 +0800 (周四, 07 七月 2016)
-# ------------------------------------------------------------------------
-P_ONELOG = r'r(\d+) \| (\S+) \| .*'
 # Index: arena/test.lua
 # ===================================================================
 # --- arena/test.lua  (revision 62120)
 # +++ arena/test.lua  (revision 62121)
 # @@ -63,7 +63,7 @@
 P_ONEPATCH = r'Index:\s(.*)\r?\n={30,}\r?\n'
-
-
-class Commit:
-    """docstring for Commit"""
-    __slots__ = ('revision ', 'author', 'date', 'message')
-    def __init__(self, arg):
-        self.revision = int(arg[0])
-        self.author = arg[1]
-        # self.date = datetime.strptime(arg[2], '%Y-%m-%d').date()
-        # self.message = arg[7].strip()
-        # self.message = None
 
 class Patch:
     """docstring for Patch"""
@@ -67,38 +53,29 @@ def call(cmd, worddir = None, printOutput=False):
         popen.wait()
         isOk = popen.returncode == 0
     else:
-        popen = subprocess.Popen(args, cwd = worddir, universal_newlines = True, stdout=subprocess.PIPE)
+        popen = subprocess.Popen(args, cwd = worddir, stdout = subprocess.PIPE)
         outData, errorData = popen.communicate()
+        if sys.version_info >= (3, 0):
+            outData = str(outData, encoding = 'utf8')
         isOk = popen.returncode == 0
         output = outData if isOk else errorData
     return (output, isOk)
 
-
-# return <string> or None(没有匹配)
-# 读取模式列表
-def readCommit(s, pattern):
-    res = re.match(pattern, s.strip(), re.DOTALL)
-    if res is None:
-        return None
-
-    commit = Commit(res.groups())
-    return commit
-
 def getRevisions():
-    cmd = "svn log -q -r %d:HEAD --search %s" % (REVISION, AUTHOR)
+    cmd = "svn log -q -r %d:HEAD --xml --search %s" % (REVISION, AUTHOR)
     output, isOk = call(cmd, PATH_FROM)
     if not isOk:
         # print(output)
         raise Exception('svnerror', output)
 
-    arr = re.split('^-{6,}$', output, flags=re.MULTILINE)
+    root = ET.fromstring(output)
+
     # print len(arr)
     revs = []
-    for one in arr:
-         if one and one.strip():
-            commit = readCommit(one, P_ONELOG)
-            if commit.author == AUTHOR:
-                revs.append(commit.revision)
+    for logentry in root.findall('logentry'):
+        author = logentry.find('author').text
+        if author == AUTHOR:
+            revs.append(int(logentry.get('revision')))
 
     return revs
 
@@ -106,7 +83,10 @@ def createPatch(content, rev):
     # print(content)
     patch = Patch(content, rev)
     patch.names = re.findall(P_ONEPATCH, content)
-    
+
+    if sys.version_info >= (3, 0):
+        content = content.encode(encoding = 'utf8')
+
     f = tempfile.NamedTemporaryFile(delete=False)
     f.write(content)
     f.close()
@@ -144,7 +124,7 @@ def openCampare(patchs):
     print(output)
 
 
-def commitPath(patchs):
+def commitPatchs(patchs):
     revisions = ','.join([str(p.revision) for p in patchs])
     logmsg = "merge from %s %s" % (PATH_FROM_NAME, revisions)
     output, isOk = call('"%s" /command:commit /closeonend:0 /path:"%s" /logmsg:"%s"' % (TortoiseSVN, PATH_TO, logmsg))
@@ -241,11 +221,11 @@ if __name__ == '__main__':
         patchs = getPatchs(revs)
         applyPatchs(patchs)
         openCampare(patchs)
-        if commitPath(patchs):
+        if commitPatchs(patchs):
             lastReversion = revs[-1]
             config['reversion'] = lastReversion + 1
             config['lastReversion'] = lastReversion
             if not dontSave:
                 writeConfig(configPath, config)
 
-    # commitPath(None)
+    # commitPatchs(None)
