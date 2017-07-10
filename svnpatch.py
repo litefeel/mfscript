@@ -79,6 +79,27 @@ def getRevisions():
 
     return revs
 
+
+
+def getLogMsg(revs):
+    slist = []
+    cmd = '"%s" log -r %%d --xml' % SVN
+    for rev in revs:
+        output, isOk = call(cmd % rev, PATH_FROM)
+        if not isOk:
+            # print(output)
+            raise Exception('svnerror', output)
+
+        root = ET.fromstring(output)
+
+        for logentry in root.findall('logentry'):
+            msg = logentry.find('msg').text
+            msg = msg.strip()
+            if len(msg) > 0 and msg not in slist:
+                slist.append(msg)
+
+    return '\n'.join(slist)
+
 def createPatch(content, rev):
     # print(content)
     patch = Patch(content, rev)
@@ -124,9 +145,9 @@ def openCampare(patchs):
     print(output)
 
 
-def commitPatchs(patchs):
+def commitPatchs(patchs, msg):
     revisions = ','.join([str(p.revision) for p in patchs])
-    logmsg = "merge from %s %s" % (PATH_FROM_NAME, revisions)
+    logmsg = "merge from %s %s\n%s" % (PATH_FROM_NAME, revisions, msg)
     output, isOk = call('"%s" /command:commit /closeonend:0 /path:"%s" /logmsg:"%s"' % (TortoiseSVN, PATH_TO, logmsg))
     print(output, isOk)
     return isOk
@@ -218,10 +239,11 @@ if __name__ == '__main__':
     if len(revs) == 0:
         print('have not new reversion')
     else:
+        msg = getLogMsg(revs)
         patchs = getPatchs(revs)
         applyPatchs(patchs)
         openCampare(patchs)
-        if commitPatchs(patchs):
+        if commitPatchs(patchs, msg):
             lastReversion = revs[-1]
             config['reversion'] = lastReversion + 1
             config['lastReversion'] = lastReversion
