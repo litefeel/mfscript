@@ -62,7 +62,7 @@ def call(cmd, worddir = None, printOutput=False):
     return (output, isOk)
 
 def getRevisions():
-    cmd = "svn log -q -r %d:HEAD --xml --search %s" % (REVISION, AUTHOR)
+    cmd = '"%s" log -q -r %d:HEAD --xml --search %s' % (SVN, REVISION, AUTHOR)
     output, isOk = call(cmd, PATH_FROM)
     if not isOk:
         # print(output)
